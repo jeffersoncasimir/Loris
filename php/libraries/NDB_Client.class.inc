@@ -196,7 +196,7 @@ class NDB_Client
         }
 
         User::singleton($_SESSION['State']->getUsername());
-
+        session_write_close();
         // finished initializing
         return true;
     }
