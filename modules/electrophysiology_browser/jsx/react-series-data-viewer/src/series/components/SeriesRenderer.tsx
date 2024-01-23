@@ -624,7 +624,8 @@ const SeriesRenderer: FunctionComponent<CProps> = ({
           />
         </clipPath>
 
-        {channelList.map((channel, i) => {
+        {
+          channelList.map((channel, i) => {
           if (!channelMetadata[channel.index]) {
             return null;
           }
@@ -734,12 +735,12 @@ const SeriesRenderer: FunctionComponent<CProps> = ({
                 : 0;
 
               return (
-                trace.chunks.map((chunk, k) => (
+                trace.chunks.map((chunk, k, chunks) => (
                     <LineChunk
                       channelIndex={channel.index}
                       traceIndex={j}
                       chunkIndex={k}
-                      key={`${k}-${trace.chunks.length}`}
+                      key={`${channel.index}-${k}-${trace.chunks.length}`}
                       chunk={chunk}
                       seriesRange={seriesRange}
                       amplitudeScale={amplitudeScale}
@@ -750,6 +751,11 @@ const SeriesRenderer: FunctionComponent<CProps> = ({
                       withDCOffset={DCOffset}
                       numChannels={numDisplayedChannels}
                       numChunks={numChunks}
+                      previousPoint={
+                        k === 0
+                          ? null
+                          : chunks[k - 1].values.slice(-1)[0]
+                      }
                     />
                 ))
               );
