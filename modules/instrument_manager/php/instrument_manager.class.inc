@@ -1,7 +1,10 @@
 <?php declare(strict_types=1);
 namespace LORIS\instrument_manager;
+//use LORIS\RedcapCSVParser;
 use \Psr\Http\Message\ServerRequestInterface;
 use \Psr\Http\Message\ResponseInterface;
+use SplFileInfo;
+//require_once 'RedcapCSVParser.class.inc';
 
 /**
  * Contains functions used to view and manage instruments installed in LORIS.
@@ -90,114 +93,168 @@ class Instrument_Manager extends \DataFrameworkMenu
             );
         }
 
-        $uploaded_file = $request->getUploadedFiles()['install_file'];
-        $filename      = $uploaded_file->getClientFilename();
-        $instrument    = pathinfo($filename)['filename'];
-        $targetdir     = new \SplFileInfo($this->_path . 'project/instruments/');
-        $fullpath      = $targetdir->getPathname() . '/' . $filename;
 
-        if ($this->instrumentExists($instrument)) {
-            // An instrument with this name already exists in the test_names
-            // table. Abort upload.
-            return new \LORIS\Http\Response\JSON\Conflict(self::ALREADY_INSTALLED);
-        }
+        $uploadedFile = $request->getUploadedFiles()['install_file'];
+        $filename     = $uploadedFile->getClientFilename();
+        $instrument   = pathinfo($filename)['filename'];
+        $targetdir    = new \SplFileInfo($this->_path . 'project/instruments/');
 
-        /* Although only .linst files should be uploaded to this module, and
-         * they are just special text files, they are marked as
-         * application/octet-stream upon upload.
-         */
-        $uploader = (new \LORIS\FilesUploadHandler($targetdir))
-            ->withPermittedMIMETypes(
-                'application/octet-stream'
-            );
-
-        $response = $uploader->handle($request);
-
-        if (!in_array($response->getStatusCode(), [200, 201], true)) {
-            if ($response->getStatusCode() == 409) {
-                /* Don't update the file if it already exists on the back-end.
-                 * Instead, inform users that an administrator must install it
-                 * on their behalf.
-                 * This should only happen for users on a system where automatic
-                 * installation is disabled (ie. has no adminUser).
-                 */
+        if (!str_ends_with($filename, 'csv')) {
+            if ($this->instrumentExists($instrument)) {
+                // An instrument with this name already exists in the test_names
+                // table. Abort upload.
                 return new \LORIS\Http\Response\JSON\Conflict(
-                    self::FILE_ALREADY_EXISTS
+                    self::ALREADY_INSTALLED
                 );
             }
-            return $response;
+
+            /* Although only .linst files should be uploaded to this module, and
+             * they are just special text files, they are marked as
+             * application/octet-stream upon upload.
+             */
+            $uploader = (new \LORIS\FilesUploadHandler($targetdir))
+                ->withPermittedMIMETypes(
+                    'application/octet-stream'
+                );
+
+            $response = $uploader->handle($request);
+
+            if (!in_array($response->getStatusCode(), [200, 201], true)) {
+                if ($response->getStatusCode() == 409) {
+                    /* Don't update the file if it already exists on the back-end.
+                     * Instead, inform users that an administrator must install it
+                     * on their behalf.
+                     * This should only happen for users on a system where automatic
+                     * installation is disabled (ie. has no adminUser).
+                     */
+                    return new \LORIS\Http\Response\JSON\Conflict(
+                        self::FILE_ALREADY_EXISTS
+                    );
+                }
+                return $response;
+            }
+
+            $created = $this->createInstrumentEntry($instrument, $targetdir);
+
+        } else {
+            // Assume redcap instrument
+
+            return new \LORIS\Http\Response\JSON\BadRequest(
+                'Redcap is not supported'
+            );
+
+            /*
+            $uploader = (new \LORIS\FilesUploadHandler($targetdir))
+                ->withPermittedMIMETypes('text/csv');
+            $response = $uploader->handle($request);
+            if (!in_array($response->getStatusCode(), [200, 201], true)) {
+                if ($response->getStatusCode() == 409) {
+                    return new \LORIS\Http\Response\JSON\Conflict(
+                        self::FILE_ALREADY_EXISTS
+                    );
+                }
+                return $response;
+            }
+
+            $csvPath      = $targetdir->getRealPath() . "/$filename";
+            $redcapCSV    = new SplFileInfo($csvPath);
+            $redcapParser = new RedcapCSVParser($redcapCSV);
+            $parsedCSV    = $redcapParser->parseDictionaryCSV($this->loris);
+            $instruments  = $redcapParser::convertDictionaryCSVToLINST($parsedCSV);
+
+            // Require all instruments not to exist before proceeding
+            $existingInstruments = [];
+            foreach ($instruments as $instrumentName => $instrument) {
+                if ($this->instrumentExists($instrumentName)) {
+                    $existingInstruments[] = $instrumentName;
+                }
+            }
+
+            if (count($existingInstruments) > 0) {
+                return new \LORIS\Http\Response\JSON\Conflict(
+                    'The following instruments already exist: ' .
+                    join(', ', $existingInstruments) . '. ' .
+                    'Aborting'
+                );
+            }
+            foreach ($instruments as $instrumentName => $instrument) {
+                $redcapParser::createLINSTFile(
+                    $targetdir->getRealPath(),
+                    $instrumentName,
+                    $instrumentName,  // Missing mapped name. Uses csv column prefix
+                    $instrument
+                );
+                $this->createInstrumentEntry(
+                    $instrumentName,
+                    $targetdir,
+                    false
+                );
+            }
+            $created = count($instruments) > 0;
+            */
         }
 
-        // Scripts in tools/ often make relative imports, so we must change
-        // our effective directory in order to use them.
-        chdir($this->_path . "/tools");
-        // Use tools/ script to generate an SQL patch file based on the
-        // structure of the uploaded .linst file.
-        exec(
-            'php generate_tables_sql_and_testNames.php < '
-            . escapeshellarg($fullpath)
-        );
-
-        if (!$this->isAdminUserConfigured()) {
-            // If no adminUser is configured, automatic installation is not
-            // possible, so this is the last step.
-            return new \LORIS\Http\Response\JSON\OK(
-                ['success' => self::UPLOAD_NO_INSTALL]
-            );
+        if ($created) {   // TODO: Improve response message
+            return new \LORIS\Http\Response\JSON\Created(["ok"=>"ok"]);
+        } else {
+            return new \LORIS\Http\Response\JSON\InternalServerError();
         }
-
-        // Install the instrument by directly sourcing the SQL file
-        // generated by `generate_tables_sql_and_testNames.php` using bash.
-        // If installation is successful, `exec` will complete
-        // silently. Otherwise, it will return the exit code and error
-        // messsage from MySQL. This will be stored in $result and
-        // logged via LorisException.
-        try {
-            $table_name = \NDB_BVL_Instrument::factory(
-                $this->loris,
-                $instrument,
-                '',
-                '',
-            )->table;
-        } catch (\NotFound $e) {
-            return (new \LORIS\Http\Response\JSON\NotFound(
-                $e->getMessage()
-            ));
-        } catch (\Exception $e) {
-            return new \LORIS\Http\Response\JSON\InternalServerError(
-                $e->getMessage()
-            );
-        }
-
-        $db_config = $loris->getConfiguration()->getSetting('database');
-        exec(
-            "mysql".
-            " -h" . escapeshellarg($db_config['host']).
-            " -u" . escapeshellarg($db_config['adminUser']).
-            " -p" . escapeshellarg($db_config['adminPassword']).
-            " " . escapeshellarg($db_config['database']).
-            " < " . $this->_path . "project/tables_sql/".
-            escapeshellarg($table_name . '.sql'),
-            $output, // $output and $status are created automatically
-            $status  // by `exec` and so need not be declared above.
-        );
-        // An exit code of 0 is a success and 1 means failure
-        if ($status) {
-            $this->logger->error(
-                "The installation of $instrument.sql failed. "
-                . "Either: the instrument table exists (but is not in the "
-                . "test_names table), or "
-                . "LORIS could not connect to the database using the "
-                . "credentials supplied in the config file. "
-                . "Exec output: `" . implode("\n", $output) . "`"
-            );
-            return new \LORIS\Http\Response\JSON\InternalServerError(
-                self::UPLOAD_INSTALL_FAILED
-            );
-        }
-
-        return new \LORIS\Http\Response\JSON\Created(["ok"=>"ok"]);
     }
+
+    /**
+     * Tells the base class that this page's provisioner can support the
+     * HasAnyPermissionOrUserSiteMatch filter.
+     *
+     * @param string      $instrumentName Instrument name
+     * @param SplFileInfo $targetDir      Instrument save location
+     * @param bool        $createMetaFile Whether to create a .meta file
+     *
+     * @return bool
+     */
+    public function createInstrumentEntry(
+        string $instrumentName,
+        SplFileInfo $targetDir,
+        bool $createMetaFile = true
+    ) : bool {
+        try {
+            // Parse csv and iterate via this
+            $inst = \NDB_BVL_Instrument::factory(
+                $this->loris,
+                $instrumentName,
+                '',
+                ''
+            );
+
+            $DB = $this->loris->getDatabaseConnection();
+            $DB->insert(
+                "test_names",
+                [
+                    'test_name' => $instrumentName,
+                    'Full_name' => $inst->getFullName(),
+                    'Sub_group' => 1,
+                ]
+            );
+            if ($createMetaFile) {
+                file_put_contents(
+                    \Utility::pathJoin(
+                        $targetDir->getPath(),
+                        $targetDir->getFilename(),
+                        $instrumentName . ".meta"
+                    ),
+                    "jsondata{@}true\n"
+                );
+            }
+        } catch (\NotFound $e) {
+            error_log($e->getMessage());
+            return false;
+        } catch (\Exception $e) {
+            error_log($e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
+
     /**
      * Tells the base class that this page's provisioner can support the
      * HasAnyPermissionOrUserSiteMatch filter.
@@ -208,6 +265,7 @@ class Instrument_Manager extends \DataFrameworkMenu
     {
         return null;
     }
+
 
     /**
      * Tells the base class that this page's provisioner can support

@@ -80,6 +80,7 @@ class InstrumentRow implements \LORIS\Data\DataInstance
     {
         $linst = $this->_path . "/project/instruments/$instrument.linst";
         if (file_exists($linst)) {
+            // TODO: Discriminate from REDCAP
             return 'Instrument Builder';
         }
 
