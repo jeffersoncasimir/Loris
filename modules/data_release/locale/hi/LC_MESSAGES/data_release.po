@@ -54,9 +54,6 @@ msgstr "नोट"
 msgid "Version names will be saved as lowercase."
 msgstr "संस्करण नाम छोटे अक्षरों में सहेजे जाएंगे।"
 
-msgid "File to upload"
-msgstr "अपलोड करने के लिए फ़ाइल"
-
 msgid "You must select a file to upload"
 msgstr "आपको अपलोड करने के लिए एक फ़ाइल चुननी होगी"
 
@@ -75,9 +72,6 @@ msgstr "अपलोड त्रुटि!"
 msgid "Upload Successful!"
 msgstr "अपलोड सफल!"
 
-msgid "Are you sure?"
-msgstr "क्या आप सुनिश्चित हैं?"
-
 msgid "A file with this name already exists!"
 msgstr "इस नाम की फ़ाइल पहले से मौजूद है!"
 
@@ -86,12 +80,6 @@ msgstr "क्या आप मौजूदा फ़ाइल को अधि�
 
 msgid "Note that the version associated with the file will also be overwritten."
 msgstr "ध्यान दें कि फ़ाइल से संबंधित संस्करण भी अधिलेखित हो जाएगा।"
-
-msgid "Yes, I am sure!"
-msgstr "हाँ, मैं सुनिश्चित हूँ!"
-
-msgid "No, cancel it!"
-msgstr "नहीं, रद्द करें!"
 
 msgid "Choose a specific file or an entire release below"
 msgstr "नीचे एक विशिष्ट फ़ाइल या पूरी रिलीज़ चुनें"
@@ -134,4 +122,3 @@ msgstr "संस्करण खोजें"
 
 msgid "An error occurred when loading the form!"
 msgstr "फ़ॉर्म लोड करते समय एक त्रुटि हुई!"
-

@@ -1,10 +1,11 @@
 /**
  * progressBarBuilder - generates the graph content.
  *
- * @param  {object} data - data needed to generate the graph content.
+ * @param {function} t - i18next React translation callback
+ * @param {object} data - data needed to generate the graph content.
  * @return {JSX.Element} the charts to render to the widget panel.
  */
-const progressBarBuilder = (data) => {
+const progressBarBuilder = (t, data) => {
   let title;
   let content;
   title = <h5>
@@ -23,7 +24,14 @@ const progressBarBuilder = (data) => {
                 data-placement ='bottom'
                 title ={`${data['female_full_percent']}% female`}>
                 <p>
-                  {data['female_total']}<br/>Females
+                  {data['female_total']}<br/>
+                  {t(
+                    'Female',
+                    {
+                      'ns': 'loris',
+                      'count': parseInt(data['female_total'] ?? '0'),
+                    }
+                  )}
                 </p>
               </div>
           }
@@ -36,7 +44,14 @@ const progressBarBuilder = (data) => {
                 style ={{width: `${data['male_full_percent']}%`}}
                 title ={`${data['male_full_percent']}% male`}>
                 <p>
-                  {data['male_total']}<br/>Males
+                  {data['male_total']}<br/>
+                  {t(
+                    'Male',
+                    {
+                      'ns': 'loris',
+                      'count': parseInt(data['male_total'] ?? '0'),
+                    }
+                  )}
                 </p>
               </div>
           }
@@ -49,19 +64,35 @@ const progressBarBuilder = (data) => {
                 style ={{width: `${data['non_binary_percent']}%`}}
                 title ={`${data['non_binary_percent']}% other`}>
                 <p>
-                  {data['non_binary_total']}<br/>Other
+                  {data['non_binary_total']}<br/>
+                  {t(
+                    'Other',
+                    {
+                      'ns': 'loris',
+                      'count': parseInt(data['non_binary_total'] ?? '0'),
+                    }
+                  )}
                 </p>
               </div>
           }
           <p className ='pull-right small target'>
-        Target: {data['recruitment_target']}
+            {t(
+              'Target: {{target}}',
+              {'target': data['recruitment_target'], 'ns': 'statistics'}
+            )}
           </p>
         </div>
         {
           data['recruitment_target'] &&
             <small>
-              Recruitment target of {data['recruitment_target']} was reached.
-              {' '}{data['total_recruitment']} total participants.
+              {t(
+                'Recruitment target of {{target}} was reached.',
+                {'target': data['recruitment_target'], 'ns': 'statistics'}
+              )}
+              {' '}{t(
+                '{{total}} total participants.',
+                {'total': data['total_recruitment'], 'ns': 'statistics'}
+              )}
             </small>
         }
       </div>
@@ -79,7 +110,14 @@ const progressBarBuilder = (data) => {
                 data-placement ='bottom'
                 title ={`${data['female_percent']}% female`}>
                 <p>
-                  {data['female_total']}<br/>Females
+                  {data['female_total']}<br/>
+                  {t(
+                    'Female',
+                    {
+                      'ns': 'loris',
+                      'count': parseInt(data['female_total'] ?? '0'),
+                    }
+                  )}
                 </p>
               </div>
           }
@@ -92,7 +130,14 @@ const progressBarBuilder = (data) => {
                 style ={{width: `${data['male_percent']}%`}}
                 title ={`${data['male_percent']}% male`}>
                 <p>
-                  {data['male_total']}<br/>Males
+                  {data['male_total']}<br/>
+                  {t(
+                    'Male',
+                    {
+                      'ns': 'loris',
+                      'count': parseInt(data['male_total'] ?? '0'),
+                    }
+                  )}
                 </p>
               </div>
           }
@@ -105,25 +150,41 @@ const progressBarBuilder = (data) => {
                   style ={{width: `${data['non_binary_percent']}%`}}
                   title ={`${data['non_binary_percent']}% other`}>
                   <p>
-                    {data['non_binary_total']}<br/>Other
+                    {data['non_binary_total']}<br/>
+                    {t(
+                      'Other',
+                      {
+                        'ns': 'loris',
+                        'count': parseInt(data['non_binary_total'] ?? '0'),
+                      }
+                    )}
                   </p>
                 </div>
           }
           {
             data['recruitment_target'] ?
               <p className ='pull-right small target'>
-                Target: {data['recruitment_target']}
+                {t(
+                  'Target: {{target}}',
+                  {'target': data['recruitment_target'], 'ns': 'statistics'}
+                )}
               </p>
               : <p className ='pull-right small target'>
-                No target set
+                {t('No target set', {ns: 'statistics'})}
               </p>
           }
         </div>
         {
           data['recruitment_target'] &&
             <small>
-            Recruitment target of {data['recruitment_target']} not reached.
-              {' '}{data['total_recruitment']} total participants.
+              {t(
+                'Recruitment target of {{target}} was not reached.',
+                {'target': data['recruitment_target'], 'ns': 'statistics'}
+              )}
+              {' '}{t(
+                '{{total}} total participants.',
+                {'total': data['total_recruitment'], 'ns': 'statistics'}
+              )}
             </small>
         }
       </>

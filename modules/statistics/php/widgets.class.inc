@@ -99,7 +99,7 @@ class Widgets extends \NDB_Page implements ETagCalculator
         $recruitment        = [
             'overall' => $this->_createProjectProgressBar(
                 'overall',
-                "Overall Recruitment",
+                dgettext("statistics", "Overall Recruitment"),
                 $recruitmentTarget,
                 $total_participants,
                 $recruitmentRaw,
@@ -119,6 +119,21 @@ class Widgets extends \NDB_Page implements ETagCalculator
             $studyWidgets
         );
 
+        $totalSizeOfProjectsGB = 0;
+        $projectsSizes         = [];
+        $cachedSizeData        = json_decode(
+            html_entity_decode(
+                $db->pselectOne(
+                    "SELECT Value
+                  FROM cached_data
+                  JOIN cached_data_type USING (CachedDataTypeID)
+                  WHERE Name='projects_disk_space'",
+                    []
+                ) ?? ''
+            ),
+            true
+        );
+
         foreach ($projects as $pid) {
             // Set project recruitment data
             $projectInfo = $config->getProjectSettings(intval(strval($pid)));
@@ -129,9 +144,10 @@ class Widgets extends \NDB_Page implements ETagCalculator
                     'project ID ' . intval(strval($pid))
                 );
             }
+            $projectName = $projectInfo['Name'];
             $recruitment[intval(strval($pid))] = $this->_createProjectProgressBar(
                 strval($pid),
-                $projectInfo['Name'],
+                $projectName,
                 $projectInfo['recruitmentTarget'],
                 $this->getTotalRecruitmentByProject(
                     $recruitmentRaw,
@@ -157,11 +173,12 @@ class Widgets extends \NDB_Page implements ETagCalculator
                 'CohortID'
             );
             foreach ($cohortsRaw AS $sp) {
-                $cohortOptions[$sp["CohortID"]]      = $sp["Title"];
+                $title = dgettext("cohort", $sp['Title']);
+                $cohortOptions[$sp["CohortID"]]      = $title;
                 $recruitmentCohorts[$sp["CohortID"]]
                     = $this->_createCohortProgressBar(
                         $sp["CohortID"],
-                        $sp["Title"],
+                        $title,
                         $sp["RecruitmentTarget"],
                         $db,
                         $sp["Count"]
@@ -171,7 +188,15 @@ class Widgets extends \NDB_Page implements ETagCalculator
                 );
                 foreach ($cohortVisits as $visitLabel => $visitName) {
                     // get visit id
-                    $visitOptions[$visitLabel] = $visitName;
+                    $visitOptions[$visitLabel] = dgettext("visit", $visitName);
+                }
+            }
+
+            if (!is_null($cachedSizeData)) {
+                if (in_array($projectName, array_keys($cachedSizeData))) {
+                    $projectSize = $cachedSizeData[$projectName]['total'];
+                    $projectsSizes[$projectName] = $projectSize;
+                    $totalSizeOfProjectsGB      += floatval($projectSize);
                 }
             }
         }
@@ -201,9 +226,12 @@ class Widgets extends \NDB_Page implements ETagCalculator
             'total_scans'     => $totalScans,
             'recruitment'     => $recruitment,
             'progressionData' => $studyProgressionProjects,
+            'total_size'      => $totalSizeOfProjectsGB,
         ];
         $values['options']            = $options;
         $values['recruitmentcohorts'] = $recruitmentCohorts;
+
+        $values['size_byproject'] = $projectsSizes;
 
         $this->_cache = new \LORIS\Http\Response\JsonResponse($values);
 
@@ -498,7 +526,7 @@ class Widgets extends \NDB_Page implements ETagCalculator
     private function _removeUrlsFromWidgetData(array $widgetData): array
     {
         foreach ($widgetData as $key => $value) {
-            if (isset($value['url'])) {
+            if (is_array($value) && isset($value['url'])) {
                 $widgetData[$key]['url'] = null;
             }
         }
@@ -599,7 +627,9 @@ class Widgets extends \NDB_Page implements ETagCalculator
                     && isset($value['ProjectID'])
                     && strval($value['ProjectID']) === $projectID
                 ) {
-                    $title = $widgetConfig['ref']->label()->getN($value['count']);
+                    $title = $widgetConfig['ref']->label()->getN(
+                        intval(preg_split('/\s+/', strval($value['count']))[0])
+                    );
 
                     $projectData[] = [
                         'title'  => $title,

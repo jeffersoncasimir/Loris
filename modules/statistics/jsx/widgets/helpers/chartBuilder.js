@@ -76,7 +76,7 @@ const formatBarData = (data) => {
   return processedData;
 };
 
-const createPieChart = (columns, id, targetModal, colours) => {
+const createPieChart = (columns, id, targetModal, colours, units = null, showPieLabelRatio = true) => {
   let newChart = c3.generate({
     bindto: targetModal ? targetModal : id,
     data: {
@@ -92,13 +92,22 @@ const createPieChart = (columns, id, targetModal, colours) => {
     pie: {
       label: {
         format: function(value, ratio, id) {
-          return value + "("+Math.round(100*ratio)+"%)";
+          if (units) {
+            value = `${value} ${units}`;
+          }
+          if (showPieLabelRatio) {
+            value = `${value} (${(ratio * 100).toFixed(0)}%)`;
+          }
+          return value;
         }
       }
     },
     tooltip: {
       format: {
         value: function (value, ratio) {
+          if (units) {
+            value = `${value} ${units}`;
+          }
           return `${value} (${(ratio * 100).toFixed(0)}%)`;
         },
       },
@@ -107,7 +116,7 @@ const createPieChart = (columns, id, targetModal, colours) => {
   return newChart;
 }
 
-const createBarChart = (labels, columns, id, targetModal, colours, dataType) => {
+const createBarChart = (labels, columns, id, targetModal, colours, dataType, yLabel) => {
   let newChart = c3.generate({
     bindto: targetModal ? targetModal : id,
     data: {
@@ -130,11 +139,11 @@ const createBarChart = (labels, columns, id, targetModal, colours, dataType) => 
     axis: {
       x: {
         type: 'category',
-        categories: labels, 
+        categories: labels,
       },
       y: {
         label: {
-          text: 'Candidates registered',
+          text: yLabel,
           position: 'inner-top'
         },
       },
@@ -167,6 +176,7 @@ const createLineChart = (data, columns, id, label, targetModal, titlePrefix) => 
       }
     }
   }
+
   let newChart = c3.generate({
     size: {
       height: targetModal && 500,
@@ -226,10 +236,8 @@ const createLineChart = (data, columns, id, label, targetModal, titlePrefix) => 
 
           name = nameFormat(d[i].name);
           value = valueFormat(d[i].value, d[i].ratio, d[i].id, d[i].index);
-          
           // Calculate percentage based on grand total of entire dataset
           let percentage = grandTotal > 0 ? ((d[i].value / grandTotal) * 100).toFixed(1) : 0;
-          
           bgcolor = $$.levelColor ? $$.levelColor(d[i].value) : color(d[i].id);
 
           text += "<tr class='" + $$.CLASS.tooltipName + "-" + d[i].id + "'>";
@@ -254,10 +262,11 @@ const getChartData = async (target, filters) => {
 
 /**
  * unloadCharts - unload all charts in a section to clear their data
+ * @param {t} The i18next translation callback
  * @param {object} chartDetails
  * @param {string} section
  */
-const unloadCharts = (chartDetails, section) => {
+const unloadCharts = (t, chartDetails, section) => {
   Object.keys(chartDetails[section]).forEach((chartID) => {
     const chart = chartDetails[section][chartID].chartObject;
     if (chart && typeof chart.unload === 'function') {
@@ -266,7 +275,7 @@ const unloadCharts = (chartDetails, section) => {
     // Clear the chart container completely
     const element = document.getElementById(chartID);
     if (element) {
-      element.innerHTML ='<p>Loading...</p>';
+      element.innerHTML ='<p>' + t('Loading...', {ns: 'loris'}) + '</p>';
     }
   });
 };
@@ -278,7 +287,7 @@ const unloadCharts = (chartDetails, section) => {
  * This is determined by the original chart type of the data provided from the API
  * If data was provided as a Pie, and the requested chartType is Bar, then the data will be reformatted
  */
-const setupCharts = async (targetIsModal, chartDetails, totalLabel) => {
+const setupCharts = async (t, targetIsModal, chartDetails, totalLabel) => {
   const chartPromises = [];
   let newChartDetails = {...chartDetails}
   Object.keys(chartDetails).forEach((section) => {
@@ -312,9 +321,9 @@ const setupCharts = async (targetIsModal, chartDetails, totalLabel) => {
           }
           let chartObject = null;
           if (chart.chartType === 'pie') {
-            chartObject = createPieChart(columns, `#${chartID}`, targetIsModal && '#dashboardModal', colours);
+            chartObject = createPieChart(columns, `#${chartID}`, targetIsModal && '#dashboardModal', colours, chart.units, chart.showPieLabelRatio);
           } else if (chart.chartType === 'bar') {
-            chartObject = createBarChart(labels, columns, `#${chartID}`, targetIsModal && '#dashboardModal', colours, chart.dataType);
+            chartObject = createBarChart(labels, columns, `#${chartID}`, targetIsModal && '#dashboardModal', colours, chart.dataType, chart.yLabel);
           } else if (chart.chartType === 'line') {
             chartObject = createLineChart(chartData, columns, `#${chartID}`, chart.label, targetIsModal && '#dashboardModal', chart.titlePrefix);
           }

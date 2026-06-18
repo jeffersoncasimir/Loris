@@ -122,7 +122,7 @@ class DataTable extends Component {
     if (this.props.getMappedCell) {
       csvData = csvData
         .map((row, i) => this.props.fields
-          .flatMap((field, j) => this.props.getMappedCell(
+          .map((field, j) => this.props.getMappedCell(
             field.label,
             row[j],
             row,
@@ -355,7 +355,9 @@ class DataTable extends Component {
         }
         break;
       default:
-        searchString = data ? data.toString().toLowerCase() : '';
+        searchString = (data !== null && data !== undefined) ?
+          data.toString().toLowerCase() : '';
+
         if (exactMatch) {
           result = (searchString === searchKey);
         } else if (opposite) {
@@ -372,12 +374,23 @@ class DataTable extends Component {
       result = (filterData === data);
     }
 
+    // Handle numeric range inputs
+    if (typeof filterData === 'object' && !Array.isArray(filterData)) {
+      const numericData = Number.parseFloat(data);
+      const min = Number.parseFloat(filterData.min);
+      const max = Number.parseFloat(filterData.max);
+      result = !Number.isNaN(numericData) &&
+        (Number.isNaN(min) || numericData >= min) &&
+        (Number.isNaN(max) || numericData <= max);
+    }
+
     // Handle array inputs for multiselects
-    if (typeof filterData === 'object') {
+    if (Array.isArray(filterData)) {
       let match = false;
       for (let i = 0; i < filterData.length; i += 1) {
         searchKey = filterData[i].toLowerCase();
-        searchString = data ? data.toString().toLowerCase() : '';
+        searchString = (data !== null && data !== undefined) ?
+          data.toString().toLowerCase() : '';
 
         let searchArray = searchString.split(',');
         match = (searchArray.includes(searchKey));
@@ -440,7 +453,7 @@ class DataTable extends Component {
             </div>
           </div>
           <div className='alert alert-info no-result-found-panel'>
-            <strong>No result found.</strong>
+            <strong>{this.props.t('No result found.', {ns: 'loris'})}</strong>
           </div>
         </div>
       );

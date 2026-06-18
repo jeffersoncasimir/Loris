@@ -1,6 +1,12 @@
 import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
-import {SelectElement, FormElement, ButtonElement, DateElement} from 'jsx/Form';
+import {
+  SelectElement,
+  FormElement,
+  ButtonElement,
+  DateElement,
+  NumericRangeElement,
+} from 'jsx/Form';
 import {useTranslation} from 'react-i18next';
 
 /**
@@ -46,7 +52,12 @@ const QueryChartForm = (props) => {
 
   const setFormData = (formElement, value) => {
     let normalizedValue = value;
-    if (!formElement.includes('date')) {
+    if (formElement === 'candidateAge') {
+      if ((normalizedValue.min || '') === '' &&
+        (normalizedValue.max || '') === '') {
+        normalizedValue = undefined;
+      }
+    } else if (!formElement.includes('date')) {
       normalizedValue = Array.isArray(value) ? value : [value];
       // Handle clear selection
       if (normalizedValue.includes('__clear__')) {
@@ -90,7 +101,7 @@ const QueryChartForm = (props) => {
               {t('Project', {ns: 'loris'})}</label>
             <SelectElement
               name ='selectedProjects'
-              options ={{__clear__: '-- Clear Selection --',
+              options ={{__clear__: clearSelection,
                 ...options.projects}}
               multiple ={true}
               emptyOption ={false}
@@ -110,7 +121,7 @@ const QueryChartForm = (props) => {
           <div>
             <label style ={{fontWeight: 'bold',
               marginBottom: '5px',
-              display: 'block'}}>{t('Cohort', {ns: 'loris'})}</label>
+              display: 'block'}}>{t('Cohort', {ns: 'loris', count: 1})}</label>
             <SelectElement
               name ='selectedCohorts'
               options ={{__clear__: clearSelection,
@@ -155,7 +166,7 @@ const QueryChartForm = (props) => {
           <div>
             <label style ={{fontWeight: 'bold',
               marginBottom: '5px',
-              display: 'block'}}>Visit</label>
+              display: 'block'}}>{t('Visit', {ns: 'loris'})}</label>
             <SelectElement
               name ='selectedVisits'
               options ={{__clear__: clearSelection,
@@ -199,11 +210,29 @@ const QueryChartForm = (props) => {
           </div>
         )}
 
+        {/* Candidate Age Section */}
+        {props.showCandidateAge && (
+          <div>
+            <NumericRangeElement
+              name='candidateAge'
+              id={`${props.id}_candidateAge`}
+              value={formDataObj['candidateAge'] || {}}
+              onUserInput={(name, value) => {
+                setFormData(name, value);
+              }}
+              label={t('Candidate Age at Registration', {ns: 'statistics'})}
+              minLabel={t('Range Start', {ns: 'statistics'})}
+              maxLabel={t('Range End', {ns: 'statistics'})}
+            />
+          </div>
+        )}
+
         {/* DateRegistered Section */}
         <div>
           <label style ={{fontWeight: 'bold',
             marginBottom: '5px',
-            display: 'block'}}>Date Registered</label>
+            display: 'block'}}>
+            {t('Date Registered', {ns: 'statistics'})}</label>
           <DateElement
             name='dateRegisteredStart'
             value={formDataObj['dateRegisteredStart'] || ''}
@@ -213,7 +242,7 @@ const QueryChartForm = (props) => {
             style={{width: '100%', padding: '8px',
               borderRadius: '5px',
               border: '1px solid #ccc'}}
-            label={'Range Start'}
+            label={t('Range Start', {ns: 'statistics'})}
           />
           <DateElement
             name='dateRegisteredEnd'
@@ -224,7 +253,7 @@ const QueryChartForm = (props) => {
             style={{width: '100%', padding: '8px',
               borderRadius: '5px',
               border: '1px solid #ccc'}}
-            label={'Range End'}
+            label={t('Range End', {ns: 'statistics'})}
           />
         </div>
       </div>
@@ -248,9 +277,11 @@ QueryChartForm.propTypes = {
   Module: PropTypes.string,
   name: PropTypes.string,
   id: PropTypes.string,
+  showCandidateAge: PropTypes.bool,
 };
 QueryChartForm.defaultProps = {
   data: {},
+  showCandidateAge: false,
 };
 
 export {

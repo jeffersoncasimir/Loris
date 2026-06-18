@@ -1,11 +1,14 @@
 import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
+import i18n from 'I18nSetup';
 import Loader from 'Loader';
 import Panel from 'Panel';
 import {QueryChartForm} from './helpers/queryChartForm';
 import {progressBarBuilder} from './helpers/progressbarBuilder';
 import {useTranslation} from 'react-i18next';
 import {setupCharts} from './helpers/chartBuilder';
+import jaStrings from '../../locale/ja/LC_MESSAGES/statistics.json';
+import frStrings from '../../locale/fr/LC_MESSAGES/statistics.json';
 
 /**
  * Recruitment - a widget containing statistics for recruitment data.
@@ -24,60 +27,94 @@ const Recruitment = (props) => {
     {
       'generalBreakdown': {
         'agerecruitment_pie': {
-          title: 'Total recruitment by Age',
+          title: t('Total recruitment by Age', {ns: 'statistics'}),
           filters: '',
           chartType: 'pie',
           dataType: 'pie',
           label: 'Age (Years)',
           options: {pie: 'pie', bar: 'bar'},
+          yLabel: t('Candidates registered', {ns: 'statistics'}),
           legend: 'under',
           chartObject: null,
         },
         'ethnicity_pie': {
-          title: 'Ethnicity at Screening',
+          title: t('Ethnicity at Screening', {ns: 'statistics'}),
           filters: '',
           chartType: 'pie',
           dataType: 'pie',
           label: 'Ethnicity',
           options: {pie: 'pie', bar: 'bar'},
+          yLabel: t('Candidates registered', {ns: 'statistics'}),
           legend: 'under',
           chartObject: null,
         },
       },
       'siteBreakdown': {
         'siterecruitment_pie': {
-          title: 'Total Recruitment per Site',
+          title: t('Total Recruitment per Site', {ns: 'statistics'}),
           filters: '',
           chartType: 'pie',
           dataType: 'pie',
           label: 'Participants',
           legend: '',
           options: {pie: 'pie', bar: 'bar'},
+          yLabel: t('Candidates registered', {ns: 'statistics'}),
           chartObject: null,
         },
         'siterecruitment_bysex': {
-          title: 'Biological sex breakdown by site',
+          title: t('Biological sex breakdown by site', {ns: 'statistics'}),
           filters: '',
           chartType: 'bar',
           dataType: 'bar',
           legend: 'under',
           options: {bar: 'bar', pie: 'pie'},
+          yLabel: t('Candidates registered', {ns: 'statistics'}),
           chartObject: null,
         },
       },
       'projectBreakdown': {
         'agedistribution_line': {
-          title: 'Candidate Age at Registration',
+          title: t('Candidate Age at Registration', {ns: 'statistics'}),
           filters: '',
           chartType: 'line',
           dataType: 'line',
           legend: '',
           options: {line: 'line'},
+          yLabel: t('Candidates registered', {ns: 'statistics'}),
           chartObject: null,
         },
       },
     }
   );
+
+  useEffect( () => {
+    i18n.addResourceBundle('ja', 'statistics', jaStrings);
+    i18n.addResourceBundle('fr', 'statistics', frStrings);
+
+    // Re-set default state that depended on the translation
+    let newdetails = {...chartDetails};
+    newdetails['generalBreakdown']['agerecruitment_pie']['title']
+      = t('Total recruitment by Age', {ns: 'statistics'});
+    newdetails['generalBreakdown']['agerecruitment_pie']['label']
+      = t('Age (Years)', {ns: 'statistics'});
+
+    newdetails['generalBreakdown']['ethnicity_pie']['title']
+      = t('Ethnicity at Screening', {ns: 'statistics'});
+    newdetails['generalBreakdown']['ethnicity_pie']['label']
+      = t('Ethnicity', {ns: 'loris'});
+
+    newdetails['siteBreakdown']['siterecruitment_pie']['title']
+      = t('Total Recruitment per Site', {ns: 'statistics'});
+    newdetails['siteBreakdown']['siterecruitment_pie']['label']
+      = t('Participants', {ns: 'statistics'});
+
+    newdetails['siteBreakdown']['siterecruitment_bysex']['title']
+      = t('Biological sex breakdown by site', {ns: 'statistics'});
+
+    newdetails['projectBreakdown']['agedistribution_line']['title']
+      = t('Candidate Age at Registration', {ns: 'statistics'});
+    setChartDetails(newdetails);
+  }, []);
 
   const showChart = (section, chartID) => {
     return props.showChart(section, chartID, chartDetails, setChartDetails);
@@ -91,7 +128,9 @@ const Recruitment = (props) => {
           className="btn btn-default btn-xs"
           onClick={() => setShowFiltersBreakdown((prev) => !prev)}
         >
-          {showFiltersBreakdown ? 'Hide Filters' : 'Show Filters'}
+          {showFiltersBreakdown ?
+            t('Hide Filters', {ns: 'loris'})
+            : t('Show Filters', {ns: 'loris'})}
         </button>
       </div>
       {showFiltersBreakdown && (
@@ -101,6 +140,7 @@ const Recruitment = (props) => {
             name={'recruitment'}
             id={'recruitmentForm' + section}
             data={json}
+            showCandidateAge={true}
             callback={async (formDataObj) => {
               await updateFilters(formDataObj, section);
             }}
@@ -117,6 +157,7 @@ const Recruitment = (props) => {
       setChartDetails);
   };
 
+  // Helper functions to calculate totals for each view
   const getTotalProjectsCount = () => {
     return Object.keys(json['recruitment'] || {})
       .filter((key) => key !== 'overall').length;
@@ -129,7 +170,7 @@ const Recruitment = (props) => {
   useEffect(
     () => {
       if (json && Object.keys(json).length !== 0) {
-        setupCharts(false, chartDetails, t('Total', {ns: 'loris'})).then(
+        setupCharts(t, false, chartDetails, t('Total', {ns: 'loris'})).then(
           (data) => {
             setChartDetails(data);
           }
@@ -141,13 +182,15 @@ const Recruitment = (props) => {
     [props.data]
   );
 
+  const title = (subtitle) => t('Recruitment', {ns: 'statistics'})
+    + ' — ' + t(subtitle, {ns: 'statistics'});
   return loading ? <Panel title ='Recruitment'><Loader/></Panel> : (
     <>
       <Panel
-        title ='Recruitment'
+        title={t('Recruitment', {ns: 'statistics'})}
         id ='statistics_recruitment'
         onChangeView ={(index) => {
-          setupCharts(false, chartDetails, t('Total', {ns: 'loris'}));
+          setupCharts(t, false, chartDetails, t('Total', {ns: 'loris'}));
           setShowFiltersBreakdown(false);
         }}
         views ={[
@@ -155,7 +198,7 @@ const Recruitment = (props) => {
             content:
             <>
               <div className ='recruitment-panel' id='overall-recruitment'>
-                {progressBarBuilder(json['recruitment']['overall'])}
+                {progressBarBuilder(t, json['recruitment']['overall'])}
               </div>
               <hr />
               {showFilters('generalBreakdown')}
@@ -169,9 +212,14 @@ const Recruitment = (props) => {
                   ))}
               </div>
             </>,
-            title: 'Recruitment - overall',
-            subtitle: `Total participants: `
-              + json['recruitment']['overall']['total_recruitment'] || -1,
+            title: title('Overall'),
+            subtitle: t(
+              'Total Participants: {{count}}',
+              {
+                ns: 'statistics',
+                count: json['recruitment']['overall']['total_recruitment'],
+              }
+            ),
           },
           {
             content:
@@ -194,9 +242,14 @@ const Recruitment = (props) => {
                 ) : (
                   <p>There have been no candidates registered yet.</p>
                 ),
-            title: 'Recruitment - site breakdown',
-            subtitle: 'Total participants: '
-              + json['recruitment']['overall']['total_recruitment'] || -1,
+            title: title('Site Breakdown'),
+            subtitle: t(
+              'Total Participants: {{count}}',
+              {
+                ns: 'statistics',
+                count: json['recruitment']['overall']['total_recruitment'],
+              }
+            ),
           },
           {
             content: <>
@@ -211,7 +264,7 @@ const Recruitment = (props) => {
                   ([key, value]) => {
                     if (key !== 'overall') {
                       return <div key ={`projectBreakdown_${key}`}>
-                        {progressBarBuilder(value)}
+                        {progressBarBuilder(t, value)}
                       </div>;
                     }
                   }
@@ -221,8 +274,11 @@ const Recruitment = (props) => {
               {showFilters('projectBreakdown')}
               {showChart('projectBreakdown', 'agedistribution_line')}
             </>,
-            title: 'Recruitment - project breakdown',
-            subtitle: `Projects: ${getTotalProjectsCount()}`,
+            title: title('Project Breakdown'),
+            subtitle: t(
+              'Projects: {{count}}',
+              {ns: 'statistics', count: getTotalProjectsCount()}
+            ),
           },
           {
             content:
@@ -237,13 +293,16 @@ const Recruitment = (props) => {
                   .map(
                     ([key, value]) => {
                       return <div key ={`cohortBreakdown_${key}`}>
-                        {progressBarBuilder(value)}
+                        {progressBarBuilder(t, value)}
                       </div>;
                     }
                   )}
               </div>,
-            title: 'Recruitment - cohort breakdown',
-            subtitle: `Cohorts: ${getTotalCohortsCount()}`,
+            title: title('Cohort Breakdown'),
+            subtitle: t(
+              'Cohorts: {{count}}',
+              {'ns': 'statistics', 'count': getTotalCohortsCount()}
+            ),
           },
         ]}
       />

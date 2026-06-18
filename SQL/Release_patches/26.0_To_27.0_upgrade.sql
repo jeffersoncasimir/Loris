@@ -1,3 +1,4 @@
+SET FOREIGN_KEY_CHECKS = 0;
 -- create new permissions to upload and to hide files
 INSERT INTO permissions (code, description, moduleID, action, categoryID) VALUES
     (
@@ -60,7 +61,8 @@ ALTER TABLE `issues`
     AFTER `category`;
 
 ALTER TABLE `issues_history`
-    MODIFY `fieldChanged` enum('assignee','status','comment','sessionID','centerID','title','category','module','lastUpdatedBy','priority','candID', 'description') NOT NULL DEFAULT 'comment';
+    MODIFY `fieldChanged` enum('assignee','status','comment','sessionID','centerID','title','category','module','lastUpdatedBy','priority','candID', 'watching', 'description') NOT NULL DEFAULT 'comment';
+    
 CREATE TABLE `instrument_data` (
   `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `Data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`Data`)),
@@ -92,6 +94,10 @@ UPDATE test_battery SET DoubleDataEntryEnabled = 'Y' WHERE Test_name IN (
 DELETE FROM Config WHERE ConfigID IN (SELECT ID FROM ConfigSettings WHERE Name = 'DoubleDataEntryInstruments');
 
 DELETE FROM ConfigSettings WHERE Name = 'DoubleDataEntryInstruments';
+
+ALTER TABLE `mri_protocol_checks`
+  DROP FOREIGN KEY `FK_mriProtocolChecks_ScanType`;
+
 -- Rename foreign key fields for consistency
 
 ALTER TABLE `mri_scan_type`
@@ -140,7 +146,6 @@ ALTER TABLE `mri_violations_log`
 -- Rename the existing constraints for consistency
 
 ALTER TABLE `mri_protocol_checks`
-  DROP FOREIGN KEY `FK_mriProtocolChecks_ScanType`,
   ADD CONSTRAINT `FK_mri_protocol_checks_scan_type`
     FOREIGN KEY (`MriScanTypeID`) REFERENCES `mri_scan_type` (`MriScanTypeID`);
 -- Drop nonsensical defaults and put use right type for others.
@@ -471,7 +476,6 @@ UPDATE parameter_candidate SET CandID=(SELECT ID from candidate c WHERE c.CandID
 ALTER TABLE parameter_candidate CHANGE CandID CandidateID int(10) unsigned NOT NULL;
 ALTER TABLE parameter_candidate ADD CONSTRAINT FK_parameter_candidate_2 FOREIGN KEY (CandidateID) REFERENCES candidate(ID);
 
-SET FOREIGN_KEY_CHECKS = 0;
 
 ALTER TABLE candidate_diagnosis_evolution_rel DROP FOREIGN KEY FK_candidate_diagnosis_evolution_rel_CandID;
 ALTER TABLE candidate_diagnosis_evolution_rel DROP PRIMARY KEY;
@@ -487,7 +491,6 @@ ADD CONSTRAINT FK_candidate_diagnosis_evolution_rel_CandID
 FOREIGN KEY (CandidateID) REFERENCES candidate(ID)
 ON DELETE RESTRICT ON UPDATE RESTRICT;
 
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- Changes references to candidate.CandID that were NOT FK. Add FK
 UPDATE feedback_bvl_thread SET CandID=(SELECT ID from candidate c WHERE c.CandID=feedback_bvl_thread.CandID);
@@ -589,3 +592,4 @@ CREATE TABLE `openid_connect_csrf` (
     PRIMARY KEY (`State`),
     CONSTRAINT `FK_openid_provider` FOREIGN KEY (`OpenIDProviderID`) REFERENCES `openid_connect_providers` (`OpenIDProviderID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+SET FOREIGN_KEY_CHECKS = 1;

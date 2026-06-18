@@ -39,7 +39,8 @@ class Charts extends \NDB_Page
      *
      * @return bool
      */
-    function _hasAccess(\User $user) : bool
+    #[\Override]
+    function isAccessibleBy(\User $user) : bool
     {
         return $user->hasPermission('data_entry');
     }
@@ -81,7 +82,11 @@ class Charts extends \NDB_Page
         // Strip any prefix of '/' to ensure that we don't have an empty string
         // when splitting the path, then there should be exactly 2 parts left,
         // "charts", and the endpoint requested.
-        $url       = ltrim($request->getURI()->getPath(), '/');
+        $url = ltrim(
+            $request->getAttribute("unhandledURI")->getPath(),
+            '/'
+        );
+
         $pathparts = explode('/', $url);
         if (count($pathparts) != 2) {
             return new \LORIS\Http\Response\JSON\NotFound();
@@ -102,6 +107,8 @@ class Charts extends \NDB_Page
             return $this->_handleSiteLineData($request);
         case 'agedistribution_line':
             return $this->_handleAgeDistributionByProject($request);
+        case 'size_byproject':
+            return $this->_handleProjectSizeBreakdown();
         default:
             return new \LORIS\Http\Response\JSON\NotFound();
         }
@@ -189,7 +196,7 @@ class Charts extends \NDB_Page
         foreach ($data as $row) {
             $siteid = $row['SiteID'];
             $count  = intval($row['Count']);
-            $sex    = strtolower($row['Sex']);
+            $sex    = is_string($row['Sex']) ? strtolower($row['Sex']) : '';
             if (!isset($processed_data[$siteid])) {
                 $processed_data[$siteid] = [
                     strtolower($sex) => $count
@@ -237,7 +244,8 @@ class Charts extends \NDB_Page
             {$conditions['cohortQuery']}
             {$conditions['visitQuery']}
             {$conditions['siteQuery']}
-            {$conditions['participantStatusQuery']}",
+            {$conditions['participantStatusQuery']}
+            ORDER BY c.DoB DESC",
             $conditions['params']
         );
 
@@ -272,13 +280,6 @@ class Charts extends \NDB_Page
             $label      = $startOfSplit . '-' . $endOfSplit;
             $recruitmentByAgeData[] = ["label" => $label, "total" => $count];
         }
-        // sort the labels
-        usort(
-            $recruitmentByAgeData,
-            function ($a, $b) {
-                return $a['label'] <=> $b['label'];
-            }
-        );
 
         return (new \LORIS\Http\Response\JsonResponse($recruitmentByAgeData));
     }
@@ -425,7 +426,7 @@ class Charts extends \NDB_Page
             $id = strtolower($id);
             $id = ucwords($id);
             if ($id == null) {
-                $id = "Unknown";
+                $id = dgettext("statistics", "Unknown");
             }
             $label = $id;
             $recruitmentByEthnicityData[] = ["label" => $label, "total" => $count];
@@ -767,6 +768,26 @@ class Charts extends \NDB_Page
             $projectQuery      .= " AND c.Date_registered <= :$paramName";
             $params[$paramName] = $queryParams['dateRegisteredEnd'];
         }
+        if (is_numeric($queryParams['candidateAgeMin'] ?? null)) {
+            $candJoin           = "JOIN candidate c ON c.ID=s.CandidateID";
+            $paramName          = 'candidateAgeMin' . (++$paramCounter);
+            $projectQuery      .= " AND TIMESTAMPDIFF(
+                YEAR,
+                c.DoB,
+                c.Date_registered
+            ) >= :$paramName";
+            $params[$paramName] = $queryParams['candidateAgeMin'];
+        }
+        if (is_numeric($queryParams['candidateAgeMax'] ?? null)) {
+            $candJoin           = "JOIN candidate c ON c.ID=s.CandidateID";
+            $paramName          = 'candidateAgeMax' . (++$paramCounter);
+            $projectQuery      .= " AND TIMESTAMPDIFF(
+                YEAR,
+                c.DoB,
+                c.Date_registered
+            ) <= :$paramName";
+            $params[$paramName] = $queryParams['candidateAgeMax'];
+        }
 
         return [
             'projectQuery'           => $projectQuery,
@@ -830,5 +851,45 @@ class Charts extends \NDB_Page
             $data[] = intval($recruitmentdata[$siteID][$year][$month] ?? "0");
         }
         return $data;
+    }
+
+    /**
+     * Handle an incoming request for project size breakdown.
+     *
+     * @return ResponseInterface
+     */
+    private function _handleProjectSizeBreakdown()
+    {
+        $DB       = \NDB_Factory::singleton()->database();
+        $user     = \NDB_Factory::singleton()->user();
+        $projects = $user->getProjects();
+
+        $cachedSizeData = json_decode(
+            html_entity_decode(
+                $DB->pselectOne(
+                    "SELECT Value
+                  FROM cached_data
+                  JOIN cached_data_type USING (CachedDataTypeID)
+                  WHERE Name='projects_disk_space'",
+                    []
+                ) ?? ''
+            ),
+            true
+        );
+
+        $projectData = [];
+        if (!is_null($cachedSizeData)) {
+            foreach ($projects as $project) {
+                $projectName = $project->getName();
+                if (in_array($projectName, array_keys($cachedSizeData))) {
+                    $projectData[] = [
+                        'label' => $projectName,
+                        ...$cachedSizeData[$projectName],
+                    ];
+                }
+            }
+        }
+
+        return (new \LORIS\Http\Response\JsonResponse($projectData));
     }
 }
